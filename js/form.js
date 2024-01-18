@@ -160,7 +160,7 @@ export const unblockSubmitButton = () => {
   submitButton.textContent = 'Опубликовать';
 };
 
-const renderMessage = (typeError) => {
+export const renderMessage = (typeError) => {
   const template = findElement(findElement(document, `#${typeError}`).content, `.${typeError}`);
   const messageFragment = document.createDocumentFragment();
   const message = template.cloneNode(true);
@@ -191,7 +191,7 @@ const renderMessage = (typeError) => {
   document.body.appendChild(messageFragment);
 };
 
-export const setUserFormSubmit = (onBegin, onComplite) => {
+export const setUserFormSubmit = (onBegin, onSuccessMessage, onErrorMessage, onComplite) => {
   form.addEventListener('submit', (evt) => {
     evt.preventDefault();
     const isValid = pristine.validate();
@@ -201,13 +201,13 @@ export const setUserFormSubmit = (onBegin, onComplite) => {
         () => {
           onComplite();
           closeModalForm();
-          renderMessage('success');
+          onSuccessMessage('success');
           form.reset();
         },
         () => {
           onComplite();
           closeModalForm();
-          renderMessage('error');
+          onErrorMessage('error');
         },
         new FormData(evt.target),
       );
