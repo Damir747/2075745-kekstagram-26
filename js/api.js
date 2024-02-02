@@ -1,14 +1,26 @@
-export const getData = (onSuccess) => {
-  fetch('https://26.javascript.pages.academy/kekstagram')
-    .then((response) => response.json())
-    .then((wizards) => {
-      onSuccess(wizards);
+import { GET_DATA_SERVER, POST_DATA_SERVER } from './const.js';
+
+export const getData = (onSuccess, onFail) => {
+  fetch(GET_DATA_SERVER)
+    .then((response) => {
+      if (response.ok) {
+        return response.json();
+      } else {
+        onFail();
+      }
+    })
+    .then((messages) => {
+      onSuccess(messages);
+    })
+    .catch(() => {
+      onFail();
     });
+
 };
 
 export const sendData = (onSuccess, onFail, body) => {
   fetch(
-    'https://26.javascript.pages.academy/kekstagram',
+    POST_DATA_SERVER,
     {
       method: 'POST',
       body,
@@ -18,10 +30,10 @@ export const sendData = (onSuccess, onFail, body) => {
       if (response.ok) {
         onSuccess();
       } else {
-        onFail('Не удалось отправить форму. Попробуйте ещё раз');
+        onFail();
       }
     })
     .catch(() => {
-      onFail('Не удалось отправить форму. Попробуйте ещё раз');
+      onFail();
     });
 };

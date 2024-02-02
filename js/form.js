@@ -1,149 +1,87 @@
-import { findElement, isEnterKey, isEscapeKey, showAlert } from './utils.js';
+import { findElement, isEnterKey, isEscapeKey, onElementClick } from './utils.js';
 import { sendData } from './api.js';
-import { minusScale, plusScale, changeScale } from './slider.js';
-
-// пустой комментарий
-//второй пустой комментарий
-const uploadFile = findElement(document, '#upload-file');
-uploadFile.addEventListener('change', openModal);
-
-const modalWindow = findElement(document, '.img-upload__overlay');
-const pictureCancel = findElement(modalWindow, '#upload-cancel');
+import { minusScale, plusScale, changeScale as onChangeScale, defaultFormData as onResetForm } from './slider.js';
+import { TYPES_OF_FILE, HASHTAG_RULE, MAX_COUNT_HASHTAGS, MIN_LENGTH_HASHTAG, MAX_LENGTH_DESCRIPTION, MAX_LENGTH_HASHTAG } from './const.js';
 
 const form = findElement(document, '#upload-select-image');
-const pristine = new Pristine(form);
-// const pristine = new Pristine(form, {
-//   classTo: 'success',
-//   errorTextParent: 'success',
-//   errorTextClass: 'error',
-// });
+const uploadFile = findElement(form, '#upload-file');
+const modalWindow = findElement(form, '.img-upload__overlay');
+const imagePreview = findElement(modalWindow, '.img-upload__preview img');
+const pictureCancel = findElement(modalWindow, '#upload-cancel');
+const scaleSmaller = findElement(modalWindow, '.scale__control--smaller');
+const scaleBigger = findElement(modalWindow, '.scale__control--bigger');
 
-// < !--Сообщение с ошибкой загрузки изображения-- >
-// <template id="error">
-//   <section class="error">
-//     <div class="error__inner">
-//       <h2 class="error__title">Ошибка загрузки файла</h2>
-//       <button type="button" class="error__button">Загрузить другой файл</button>
-//     </div>
-//   </section>
-// </template>
+export const showPreviewImage = (input) => {
+  const file = input.files[0];
+  const fileName = file.name.toLowerCase();
+  const matches = TYPES_OF_FILE.some((it) => fileName.endsWith(it));
 
-// <!--Сообщение об успешной загрузке изображения-- >
-// <template id="success">
-//   <section class="success">
-//     <div class="success__inner">
-//       <h2 class="success__title">Изображение успешно загружено</h2>
-//       <button type="button" class="success__button">Круто!</button>
-//     </div>
-//   </section>
-// </template>
-
-// <!--Экран загрузки изображения-- >
-// <template id="messages">
-//   <div class="img-upload__message  img-upload__message--loading">Загружаем...</div>
-// </template>
-
-function validateHashtags(str) {
-  const arr = [];
-  const MAX_COUNT_HASHTAGS = 5;
-
-  const target = '#'; // цель поиска
-  let position = 0;
-  let foundPos = -2;
-  foundPos = str.indexOf(target, position);
-  while (foundPos !== -1) {
-    position = foundPos + 1; // продолжаем со следующей позиции
-    foundPos = str.indexOf(target, position);
-    arr.push(str.slice(position, (foundPos !== -1) ? foundPos : str.length));
+  if (matches) {
+    imagePreview.src = URL.createObjectURL(file);
   }
-  if (str.length > 0 && arr.length === 0) {
-    showAlert('# не найден');
-    return '# не найден';
-  }
-  // Проверка на # пройдена
+};
 
-  if (arr.length > MAX_COUNT_HASHTAGS) {
-    showAlert(`Количество хэштегов больше ${MAX_COUNT_HASHTAGS}`);
-    return `Количество хэштегов больше ${MAX_COUNT_HASHTAGS}`;
-  }
-  // Проверка на количество хештегов пройдена
-
-  for (let i = 0; i < arr.length - 1; i++) {
-    if (arr[i].slice(-1) !== ' ') {
-      showAlert('Пробел не найден');
-      return 'Пробел не найден';
-    }
-  }
-
-  // Удаление пробелов в конце тегов
-  for (let i = 0; i < arr.length; i++) {
-    while ((arr[i].slice(-1) === ' ')) {
-      arr[i] = arr[i].slice(0, -1);
-    }
-  }
-
-  for (let i = 0; i < arr.length; i++) {
-    if (arr[i].length < 1) {
-      showAlert('Тег состоит только из #');
-      return 'Тег состоит только из #';
-    }
-    if (arr[i].length > 19) {
-      showAlert('Длина тега больше 20, включая #');
-      return 'Длина тега больше 20, включая #';
-    }
-  }
-  // Проверка на длину тегов пройдена
-
-  for (let i = 0; i < arr.length; i++) {
-    arr[i] = arr[i].toLowerCase();
-  }
-  const test = arr.filter((elem, pos, array) =>
-    (array.indexOf(elem.toLowerCase()) !== array.lastIndexOf(elem.toLowerCase()))
-  );
-
-  if (test.length > 0) {
-    showAlert(`Есть повторяющиеся элементы: ${test}`);
-    return `Есть повторяющиеся элементы: ${test}`;
-  }
-  // Тест на повторы пройден
-
-  for (let i = 0; i < arr.length; i++) {
-    if (!(/^[a-zA-Z0-9\d]+$/.test(arr[i]))) {
-      showAlert(`Элемент содержит запрещенные символы: ${arr[i]}`);
-      return `Элемент содержит запрещенные символы: ${arr[i]}`;
-    }
-  }
-  // Проверка на запрещенные символы пройдена
-  // console.log(`${str} ГОДЕН`);
-
-  const templateSuccess = findElement(document, '#success');
-  const templateSection = findElement(templateSuccess.content, 'section');
-  const templateFragment = document.createDocumentFragment();
-  const successElement = templateSection.cloneNode(true);
-  const successTitle = findElement(successElement, 'h2');
-  successTitle.textContent = 'Ошибка по умолчанию/Успешно';
-  templateFragment.appendChild(successElement);
-  return true;
-}
-
-// validateHashtags('#fdsfds #FDSFDS1 #vvxcvxc #12345');
-
-// function validateHashtagsLength(value) {
-//   return value.length >= 2 && value.length <= 20;
-// }
-
-const MAX_LENGTH_DESCRIPTION = 140;
-function validateDescription(str) {
-
-  if (str.length > MAX_LENGTH_DESCRIPTION) {
-    showAlert(`Превышена максимальная длина описания ${MAX_LENGTH_DESCRIPTION}`);
-    return `Превышена максимальная длина описания ${MAX_LENGTH_DESCRIPTION}`;
-  }
-  return true;
-}
-
+form.addEventListener('reset', onResetForm);
 const hashtagsField = findElement(form, '.text__hashtags');
-pristine.addValidator(hashtagsField, validateHashtags);
+
+const pristine = new Pristine(form, {
+  classTo: 'text__label',
+  errorClass: 'text__label--invalid',
+  successClass: 'text__label--valid',
+  errorTextParent: 'text__label',
+  errorTextTag: 'p',
+  errorTextClass: 'text__error'
+});
+
+const getArrayFromString = (value) => value.toLowerCase().split(' ').filter(String);
+
+const minLength = (arr) => {
+  if (arr.length === 0) {
+    return false;
+  }
+  let min = Number.MAX_VALUE;
+  for (let i = 0; i < arr.length; i++) {
+    if (arr[i].length < min) {
+      min = arr[i].length;
+    }
+  }
+  return min;
+};
+
+const maxLength = (arr) => {
+  if (arr.length === 0) {
+    return false;
+  }
+  let max = 0;
+  for (let i = 0; i < arr.length; i++) {
+    if (arr[i].length > max) {
+      max = arr[i].length;
+    }
+  }
+  return max;
+};
+
+const validateHashtags = (value) => (value.length === 0) ? true : getArrayFromString(value).every((item) => HASHTAG_RULE.test(item));
+const checkHashtagCount = (value) => (getArrayFromString(value).length <= MAX_COUNT_HASHTAGS);
+const checkHashtagLengthMin = (value) => (getArrayFromString(value).length === 0 || minLength(getArrayFromString(value)) >= MIN_LENGTH_HASHTAG);
+const checkHashtagLengthMax = (value) => (maxLength(getArrayFromString(value)) <= MAX_LENGTH_HASHTAG);
+const checkDuplicate = (array) => [...new Set(array)].length === array.length;
+const checkHashtagRepeat = (value) => checkDuplicate(getArrayFromString(value));
+const checkes = [
+  { check: validateHashtags, message: 'Хештеги начинаются с #, разделяются пробелом' },
+  { check: checkHashtagCount, message: `Количество тегов больше ${MAX_COUNT_HASHTAGS}` },
+  { check: checkHashtagLengthMin, message: `Длина тега меньше ${MIN_LENGTH_HASHTAG}` },
+  { check: checkHashtagLengthMax, message: `Длина тега больше ${MAX_LENGTH_HASHTAG}, включая #` },
+  { check: checkHashtagRepeat, message: 'Повторяющиеся теги' }
+];
+
+for (let i = 0; i < checkes.length; i++) {
+  pristine.addValidator(
+    hashtagsField,
+    checkes[i].check,
+    checkes[i].message
+  );
+}
 
 hashtagsField.addEventListener('keydown', (evt) => {
   if (isEscapeKey) {
@@ -151,8 +89,15 @@ hashtagsField.addEventListener('keydown', (evt) => {
   }
 });
 
+const checkDescription = (value) => value.length <= MAX_LENGTH_DESCRIPTION;
+
 const descriptionField = findElement(form, '.text__description');
-pristine.addValidator(descriptionField, validateDescription);
+
+pristine.addValidator(
+  descriptionField,
+  checkDescription,
+  `Превышена максимальная длина описания ${MAX_LENGTH_DESCRIPTION}`
+);
 
 descriptionField.addEventListener('keydown', (evt) => {
   if (isEscapeKey) {
@@ -160,79 +105,109 @@ descriptionField.addEventListener('keydown', (evt) => {
   }
 });
 
+const submitButton = findElement(form, '#upload-submit');
 
-// __________________ Повтор кода picture.js
-// о чем говорится в задании
-// В работе вы можете опираться на код показа окна с полноразмерной фотографией, который вы, возможно, уже написали в предыдущей домашней работе.
-// renderPicture - другой
+const sliderElementValue = findElement(modalWindow, '.scale__control--value');
 
-const onModalEscKeyDown = (evt) => {
-  if (isEscapeKey(evt)) {
-    evt.preventDefault();
-    closeModal();
-  }
+export const closeModalForm = () => {
+  modalWindow.classList.add('hidden');
+  document.body.classList.remove('modal-open');
+  document.body.removeEventListener('keydown', onModalEscKeyDown);
+  pictureCancel.removeEventListener('click', closeModalForm);
+  scaleSmaller.removeEventListener('click', minusScale);
+  scaleBigger.removeEventListener('click', plusScale);
+  sliderElementValue.removeEventListener('change', onChangeScale);
+  form.reset();
 };
 
-// ?focus по-прежнему на основном окне, при нажатии на Enter снова открывается форма
-function openModal() {
+const openModalForm = () => {
   modalWindow.classList.remove('hidden');
-  const body = findElement(document, 'body');
-  body.classList.add('modal-open');
-  // renderPicture(image);
-  body.addEventListener('keydown', onModalEscKeyDown);
+  document.body.classList.add('modal-open');
+  document.body.addEventListener('keydown', onModalEscKeyDown);
+  onElementClick(pictureCancel, closeModalForm);
+  onElementClick(scaleSmaller, minusScale);
+  onElementClick(scaleBigger, plusScale);
+  sliderElementValue.addEventListener('change', onChangeScale);
+  submitButton.focus();
+};
 
-  const buttonMinus = findElement(document, '.scale__control--smaller');
-  buttonMinus.addEventListener('click', minusScale);
-  const buttonPlus = findElement(document, '.scale__control--bigger');
-  buttonPlus.addEventListener('click', plusScale);
-  const sliderElementValue = findElement(document, '.scale__control--value');
-  sliderElementValue.onchange = changeScale;
+function onModalEscKeyDown(evt) {
+  if (isEscapeKey(evt)) {
+    evt.preventDefault();
+    closeModalForm();
+  }
 }
 
-export function closeModal() {
-  modalWindow.classList.add('hidden');
-  const body = findElement(document, 'body');
-  body.classList.remove('modal-open');
-  // надо ли чистить что-то за собой ? анти rendererPicture
-  body.removeEventListener('keydown', onModalEscKeyDown);
-  uploadFile.value = '';
-}
-
-pictureCancel.addEventListener('click', () => {
-  closeModal();
+uploadFile.addEventListener('change', () => {
+  showPreviewImage(uploadFile);
+  openModalForm();
 });
+
 
 pictureCancel.addEventListener('keydown', (evt) => {
   if (isEnterKey(evt)) {
-    closeModal();
+    closeModalForm();
   }
 });
 
-const submitButton = findElement(form, '#upload-submit');
-const blockSubmitButton = () => {
+export const blockSubmitButton = () => {
   submitButton.disabled = true;
   submitButton.textContent = 'Публикую...';
 };
 
-const unblockSubmitButton = () => {
+export const unblockSubmitButton = () => {
   submitButton.disabled = false;
   submitButton.textContent = 'Опубликовать';
 };
 
-export const setUserFormSubmit = (onSuccess) => {
+const renderMessage = (typeError) => {
+  const template = findElement(findElement(document, `#${typeError}`).content, `.${typeError}`);
+  const messageFragment = document.createDocumentFragment();
+  const message = template.cloneNode(true);
+  const button = message.querySelector(`.${typeError}__button`);
+
+  const closeMessage = () => {
+    message.remove();
+    document.removeEventListener('keydown', onKeydown);
+  };
+
+  onElementClick(message, (evt) => {
+    if (evt.target.classList.contains(typeError)) {
+      closeMessage();
+    }
+  });
+
+  onElementClick(button, closeMessage);
+  document.addEventListener('keydown', onKeydown);
+
+  function onKeydown(evt) {
+    if (evt.key === 'Escape') {
+      evt.preventDefault();
+      closeMessage();
+    }
+  }
+
+  messageFragment.appendChild(message);
+  document.body.appendChild(messageFragment);
+};
+
+export const setUserFormSubmit = (onBegin, onComplite) => {
   form.addEventListener('submit', (evt) => {
     evt.preventDefault();
     const isValid = pristine.validate();
     if (isValid) {
-      blockSubmitButton();
+      onBegin();
       sendData(
         () => {
-          onSuccess();
-          unblockSubmitButton();
+          onComplite();
+          closeModalForm();
+          renderMessage('success');
+          form.reset();
         },
         () => {
-          showAlert('Не удалось отправить форму. Попробуйте ещё раз');
-          unblockSubmitButton();
+          onComplite();
+          closeModalForm();
+          renderMessage('error');
         },
         new FormData(evt.target),
       );
@@ -240,20 +215,3 @@ export const setUserFormSubmit = (onSuccess) => {
   });
 };
 
-//     Заведите модуль, который будет отвечать за работу с формой.
-//     Пропишите тегу < form > правильные значения атрибутов method и адрес action для отправки формы на сервер.
-//         Обратите внимание.В разделе про работу с сетью мы доработаем механизм отправки данных, а пока достаточно правильных атрибутов у тега < form >.
-//         Если форма заполнена верно, то после отправки покажется страница сервера(по адресу из атрибута action тега form) с успешно отправленными данными.Если же форма пропустила какие - то некорректные значения, то будет показана страница с допущенными ошибками.В идеале у пользователя не должно быть сценария, при котором он может отправить некорректную форму.
-//     Проверьте разметку вашего проекта и добавьте недостающие атрибуты.Например, всем обязательным полям нужно добавить атрибут required.Затем проверьте, правильные ли типы стоят у нужных полей, если нет — проставьте правильные.
-//   Изучите, что значит загрузка изображения, и как, когда и каким образом показывается форма редактирования изображения.Напишите код и добавьте необходимые обработчики для реализации этого пункта техзадания.В работе вы можете опираться на код показа окна с полноразмерной фотографией, который вы, возможно, уже написали в предыдущей домашней работе.
-//     Важно.Подстановка выбранного изображения в форму — это отдельная домашняя работа.В данном задании этот пункт реализовывать не нужно.
-//     После реализуйте закрытие формы.
-//         Обратите внимание, что при закрытии формы дополнительно необходимо сбрасывать значение поля выбора файла #upload - file.В принципе, всё будет работать, если при повторной попытке загрузить в поле другую фотографию.Но! Событие change не сработает, если пользователь попробует загрузить ту же фотографию, а значит окно с формой не отобразится, что будет нарушением техзадания.Значение других полей формы также нужно сбрасывать.
-//     Напишите код для валидации формы добавления изображения.Список полей для валидации:
-// Хэш - теги
-// Комментарий
-//         На расширенном тарифе валидацию хэш - тегов делать не нужно.Достаточно проверки, что поле не пустое.
-//     Реализуйте логику проверки так, чтобы, как минимум, она срабатывала при попытке отправить форму и не давала этого сделать, если форма заполнена не по правилам.При желании, реализуйте проверки сразу при вводе значения в поле.
-// Как отменить обработчик Esc при фокусе ?
-//   Валидация хеш - тегов ?
-//     Поля, не перечисленные в техзадании, но существующие в разметке, особой валидации не требуют.
